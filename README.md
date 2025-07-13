@@ -152,6 +152,7 @@ MSSQL_DATABASE=smart_attendance
 
 ---
 ![image alt](https://github.com/Pverma-1234/Smart-Attendance/blob/main/Screenshot%202025-07-13%20215630.png?raw=true)
+![image alt](https://github.com/Pverma-1234/Smart-Attendance/blob/main/Screenshot%202025-07-13%20215709.png?raw=true)
 
 ## 📣 Interviewer Note
 
