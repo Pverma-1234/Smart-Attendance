@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Attendance</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-200 dark:from-gray-900 dark:to-black min-h-screen p-6 transition duration-500">
+  <div class="max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl text-gray-900 dark:text-white">
+    <div class="flex justify-between items-center mb-10">
+      <h2 class="text-4xl font-extrabold">🎓 Smart Attendance System</h2>
+      <button onclick="toggleMode()" id="modeButton" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-yellow-400 dark:text-black transition">🌞 Day Mode</button>
+    </div>
+
+    <!-- Register Student -->
+    <div class="mb-10">
+      <h3 class="text-2xl font-semibold mb-4">📝 Register Student</h3>
+      <input id="id" placeholder="Student ID" class="input" />
+      <input id="name" placeholder="Student Name" class="input" />
+      <button onclick="register()" class="btn-blue">Register</button>
+      <div id="register-alert" class="text-green-500 font-semibold mt-3"></div>
+    </div>
+
+    <!-- Mark Attendance -->
+    <div class="mb-10">
+      <h3 class="text-2xl font-semibold mb-4">📌 Mark Attendance</h3>
+      <input id="log-id" placeholder="Student ID" class="input" />
+      <input id="log-name" placeholder="Student Name" class="input" />
+      <select id="log-status" class="input">
+        <option value="present">Present</option>
+        <option value="absent">Absent</option>
+      </select>
+      <input type="date" id="log-date" class="input" />
+      <div class="flex gap-4">
+        <button onclick="markManual()" class="btn-green">✅ Submit Attendance</button>
+        <button onclick="undoAttendance()" class="btn-dark">↩️ Undo Last Attendance</button>
+      </div>
+      <div id="log-alert" class="text-green-500 font-semibold mt-3"></div>
+      <div id="undo-alert" class="text-yellow-400 font-semibold mt-1"></div>
+    </div>
+
+    <!-- Total Students -->
+    <div class="mb-10">
+      <h3 class="text-2xl font-semibold mb-4">👥 Total Registered Students</h3>
+      <button onclick="getTotalStudents()" class="btn-blue">Show Total</button>
+      <div id="total-students" class="mt-3 font-bold"></div>
+    </div>
+
+    <!-- Daily Report -->
+    <div class="mb-10">
+      <h3 class="text-2xl font-semibold mb-4">📊 Daily Report</h3>
+      <button onclick="report()" class="btn-purple">View Report</button>
+      <pre id="report" class="bg-gray-100 dark:bg-gray-700 p-4 mt-3 rounded text-sm"></pre>
+    </div>
+
+    <!-- Attendance History Graph -->
+    <div class="mb-10">
+      <h3 class="text-2xl font-semibold mb-4">📈 Attendance History (Graph)</h3>
+      <input id="history-id" placeholder="Student ID" class="input" />
+      <input type="date" id="from" class="input" />
+      <input type="date" id="to" class="input" />
+      <button onclick="getHistory()" class="btn-dark">Get Attendance</button>
+      <canvas id="lineChart" class="mt-6"></canvas>
+      <div id="summary" class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow mt-5 text-base"></div>
+    </div>
+
+    <!-- Download Section -->
+    <div class="mb-4 pt-6 border-t dark:border-gray-700">
+      <h3 class="text-2xl font-semibold mb-4">⬇️ Export Attendance</h3>
+      <button onclick="downloadExcel()" class="btn-blue">📥 Download Final Attendance Excel</button>
+    </div>
+  </div>
+
+  <style>
+    .input {
+      display: block;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+      background-color: white;
+      color: black;
+      font-size: 1rem;
+    }
+    .btn-blue {
+      background-color: #2563eb;
+      color: white;
+      padding: 0.75rem;
+      width: 100%;
+      border-radius: 0.5rem;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .btn-green {
+      background-color: #22c55e;
+      color: white;
+      padding: 0.75rem;
+      width: 100%;
+      border-radius: 0.5rem;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .btn-purple {
+      background-color: #8b5cf6;
+      color: white;
+      padding: 0.75rem;
+      width: 100%;
+      border-radius: 0.5rem;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .btn-dark {
+      background-color: #1f2937;
+      color: white;
+      padding: 0.75rem;
+      width: 100%;
+      border-radius: 0.5rem;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    button:hover {
+      opacity: 0.9;
+      transform: scale(1.01);
+    }
+  </style>
+
+  <script>
+    let lineChart;
+    const attendanceStack = [];
+
+    async function register() {
+      const id = document.getElementById('id').value;
+      const name = document.getElementById('name').value;
+      if (!id || !name) {
+        document.getElementById('register-alert').textContent = 'Please enter both ID and Name';
+        return;
+      }
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name })
+      });
+      const data = await res.json();
+      document.getElementById('register-alert').textContent = data.status || data.error;
+    }
+
+    async function markManual() {
+      const id = document.getElementById('log-id').value;
+      const name = document.getElementById('log-name').value;
+      const status = document.getElementById('log-status').value;
+      const date = document.getElementById('log-date').value;
+
+      if (!id || !name || !status || !date) {
+        document.getElementById('log-alert').textContent = 'Please fill all fields';
+        return;
+      }
+
+      attendanceStack.push({ id, name, status, date });
+
+      const res = await fetch('/api/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status, date })
+      });
+
+      const data = await res.json();
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+
+      document.getElementById('log-alert').textContent = `${data.status || data.error} at ${timeStr}`;
+    }
+
+    // This undoAttendance function marks the last attendance as 'absent' in the backend
+async function undoAttendance() {
+  if (attendanceStack.length === 0) {
+    alert('⚠️ No attendance to undo');
+    return;
+  }
+  const last = attendanceStack.pop();
+  const dateOnly = last.date;
+
+  // Send request to backend to mark 'absent' instead of delete
+  const res = await fetch(`/api/undo?id=${last.id}&date=${dateOnly}`, {
+    method: 'DELETE'
+  });
+
+  const data = await res.json();
+  document.getElementById('undo-alert').textContent = data.status;
+  alert(`⤴️ Undo changed to absent for ${last.id} on ${dateOnly}`);
+
+  // Refresh graph if same student
+  if (document.getElementById('history-id').value === last.id) {
+    getHistory();
+  }
+}
+
+
+    function downloadExcel() {
+      if (attendanceStack.length === 0) {
+        alert('No attendance to export');
+        return;
+      }
+      const worksheet = XLSX.utils.json_to_sheet(attendanceStack);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+      XLSX.writeFile(workbook, "Final_Attendance.xlsx");
+    }
+
+    async function report() {
+      const res = await fetch('/api/report');
+      const data = await res.json();
+      document.getElementById('report').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function getHistory() {
+      const id = document.getElementById('history-id').value;
+      const from = document.getElementById('from').value;
+      const to = document.getElementById('to').value;
+
+      const res = await fetch(`/api/history?student_id=${id}&from=${from}&to=${to}`);
+      const data = await res.json();
+      const logs = data.logs;
+
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      const dateMap = {};
+      logs.forEach(log => dateMap[log.date] = log.status);
+
+      const labels = [], presentData = [];
+      let presentCount = 0, absentCount = 0, totalDays = 0;
+
+      for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().slice(0, 10);
+        labels.push(dateStr);
+        totalDays++;
+
+        if (dateMap[dateStr] === 'present') {
+          presentData.push(1);
+          presentCount++;
+        } else {
+          presentData.push(0);
+          absentCount++;
+        }
+      }
+
+      if (lineChart) lineChart.destroy();
+      const ctx = document.getElementById('lineChart').getContext('2d');
+      lineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Attendance (1 = Present, 0 = Absent)',
+            data: presentData,
+            borderColor: 'green',
+            fill: false,
+            tension: 0.3,
+            pointBackgroundColor: presentData.map(val => val ? 'green' : 'red'),
+            pointRadius: 5
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              ticks: {
+                callback: val => val === 1 ? 'Present' : 'Absent'
+              },
+              min: 0,
+              max: 1
+            }
+          }
+        }
+      });
+
+      document.getElementById('summary').innerHTML = `
+        📅 <b>Total Days:</b> ${totalDays} <br>
+        ✅ <b>Total Present:</b> ${presentCount} <br>
+        ❌ <b>Total Absent:</b> ${absentCount}`;
+    }
+
+    async function getTotalStudents() {
+      const res = await fetch('/api/total');
+      const data = await res.json();
+      document.getElementById('total-students').textContent = `Total Students: ${data.count}`;
+    }
+
+    function toggleMode() {
+      const root = document.documentElement;
+      const btn = document.getElementById('modeButton');
+      root.classList.toggle('dark');
+      const isDark = root.classList.contains('dark');
+      btn.innerText = isDark ? '🌙 Night Mode' : '🌞 Day Mode';
+    }
+
+    window.onload = () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('log-date').value = today;
+      getTotalStudents();
+    };
+  </script>
+</body>
+</html>
