@@ -151,6 +151,7 @@ MSSQL_DATABASE=smart_attendance
 - 💡 Designed to scale from classrooms to institutions.
 
 ---
+![image alt](imageurl)
 
 ## 📣 Interviewer Note
 
