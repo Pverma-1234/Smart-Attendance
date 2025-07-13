@@ -151,7 +151,7 @@ MSSQL_DATABASE=smart_attendance
 - 💡 Designed to scale from classrooms to institutions.
 
 ---
-![image alt](imageurl)
+![image alt](https://github.com/Pverma-1234/Smart-Attendance/blob/main/Screenshot%202025-07-13%20215630.png?raw=true)
 
 ## 📣 Interviewer Note
 
